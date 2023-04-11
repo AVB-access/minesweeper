@@ -1,12 +1,22 @@
 use std::io::{stdin, stdout, Write};
 
 fn main() {
-    let mut _field = Vec::<i8>::new();
     let (mut n, mut m) = (0u8,0u8);
 
     get_user_in(&mut n, &mut m);
+    println!("Field sizes: {n}, {m}");
+    let mut field: Vec<Vec<u8>> = vec![vec![0;n as usize];m as usize];
 
-    println!("Field sizes: {n}, {m}")
+    print_field(&field);
+}
+
+fn print_field(field: &Vec<Vec<u8>>) {
+    for (_i, row) in field.iter().enumerate() {
+        for (_j, colmn) in row.iter().enumerate() {
+            print!("{} ", colmn);
+        }
+        println!();
+    }
 }
 
 fn get_user_in(n:&mut u8, m:&mut u8) {
