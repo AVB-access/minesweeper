@@ -77,11 +77,12 @@ fn ask_user_mines_no() -> u8 {
 
     return mines;
 }
-//TODO: Need to change mines to 'X's later
+
 fn print_field(field: &Vec<Vec<i8>>) {
     for (_i, row) in field.iter().enumerate() {
         for (_j, colmn) in row.iter().enumerate() {
-            print!("{} ", colmn);
+            if *colmn == -1 { print!("X "); }
+            else { print!("{} ", colmn); } 
         }
         println!();
     }
