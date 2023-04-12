@@ -9,10 +9,10 @@ fn main() {
     println!("Field sizes: {n}, {m}");
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
 
-    print_field(&field);
+    DEBUG_print_field(&field);
     println!("Now asking for mines...");
     let _no_mines = generate_mines(&mut field, n, m);
-    print_field(&field);
+    DEBUG_print_field(&field);
 }
 
 /**
@@ -61,6 +61,8 @@ fn update_neighbours(_field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
     if point.0+1 < m && point.1+1 < n { /* SE */}
 }
 
+
+//TODO limit to n*m - 1
 fn ask_user_mines_no() -> u8 {
     let mut mines = 0;
     let mut input_buffer = String::new();
@@ -78,7 +80,7 @@ fn ask_user_mines_no() -> u8 {
     return mines;
 }
 
-fn print_field(field: &Vec<Vec<i8>>) {
+fn DEBUG_print_field(field: &Vec<Vec<i8>>) {
     for (_i, row) in field.iter().enumerate() {
         for (_j, colmn) in row.iter().enumerate() {
             if *colmn == -1 { print!("X "); }
