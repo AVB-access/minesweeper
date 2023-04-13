@@ -9,10 +9,10 @@ fn main() {
     println!("Field sizes: {n}, {m}");
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
 
-    DEBUG_print_field(&field);
+    debug_print_field(&field);
     println!("Now asking for mines...");
     let _no_mines = generate_mines(&mut field, n, m);
-    DEBUG_print_field(&field);
+    debug_print_field(&field);
 }
 
 /**
@@ -40,7 +40,7 @@ fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8) -> u8 {
         if set_mines.insert((x,y)) {
             curr_mines += 1;
             field[x as usize][y as usize] = -1;
-            update_neighbours(field, m, n, &(x,y)) //TEMP does nothing
+            update_neighbours(field, m, n, &(x,y))
         }else { continue; /*try again*/ } 
     }
 
@@ -48,17 +48,17 @@ fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8) -> u8 {
 }
 
 /**
- * Increment all the neighbours of a mine by one
+ * Increment all the neighbours of a new mine by one
  */
-fn update_neighbours(_field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
-    if point.0 > 0 && point.1 > 0 { /* NW */}
-    if point.0 > 0 { /* N */}
-    if point.0 > 0 && point.1+1 < n { /* NE */}
-    if point.1 > 0 { /* W */}
-    if point.1+1 < n { /* E */}
-    if point.0+1 < m && point.1 > 0 { /* SW */}
-    if point.0+1 < m { /* S */}
-    if point.0+1 < m && point.1+1 < n { /* SE */}
+fn update_neighbours(field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
+    if point.0 > 0 && point.1 > 0 { /* NW */ field[(point.0-1) as usize][(point.1-1) as usize] += 1; }
+    if point.0 > 0 { /* N */ field[(point.0-1) as usize][point.1 as usize] += 1; }
+    if point.0 > 0 && point.1+1 < n { /* NE */ field[(point.0-1) as usize][(point.1+1) as usize] += 1; }
+    if point.1 > 0 { /* W */ field[point.0 as usize][(point.1-1) as usize] += 1; }
+    if point.1+1 < n { /* E */ field[point.0 as usize][(point.1+1) as usize] += 1; }
+    if point.0+1 < m && point.1 > 0 { /* SW */ field[(point.0+1) as usize][(point.1-1) as usize] += 1; }
+    if point.0+1 < m { /* S */ field[(point.0+1) as usize][point.1 as usize] += 1;}
+    if point.0+1 < m && point.1+1 < n { /* SE */ field[(point.0+1) as usize][(point.1+1) as usize] += 1; }
 }
 
 
@@ -80,7 +80,7 @@ fn ask_user_mines_no() -> u8 {
     return mines;
 }
 
-fn DEBUG_print_field(field: &Vec<Vec<i8>>) {
+fn debug_print_field(field: &Vec<Vec<i8>>) {
     for (_i, row) in field.iter().enumerate() {
         for (_j, colmn) in row.iter().enumerate() {
             if *colmn == -1 { print!("X "); }
