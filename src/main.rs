@@ -51,14 +51,14 @@ fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8) -> u8 {
  * Increment all the neighbours of a new mine by one
  */
 fn update_neighbours(field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
-    if point.0 > 0 && point.1 > 0 { /* NW */ field[(point.0-1) as usize][(point.1-1) as usize] += 1; }
-    if point.0 > 0 { /* N */ field[(point.0-1) as usize][point.1 as usize] += 1; }
-    if point.0 > 0 && point.1+1 < n { /* NE */ field[(point.0-1) as usize][(point.1+1) as usize] += 1; }
-    if point.1 > 0 { /* W */ field[point.0 as usize][(point.1-1) as usize] += 1; }
-    if point.1+1 < n { /* E */ field[point.0 as usize][(point.1+1) as usize] += 1; }
-    if point.0+1 < m && point.1 > 0 { /* SW */ field[(point.0+1) as usize][(point.1-1) as usize] += 1; }
-    if point.0+1 < m { /* S */ field[(point.0+1) as usize][point.1 as usize] += 1;}
-    if point.0+1 < m && point.1+1 < n { /* SE */ field[(point.0+1) as usize][(point.1+1) as usize] += 1; }
+    if point.0 > 0 && point.1 > 0 { field[(point.0-1) as usize][(point.1-1) as usize] += 1; }       /* NW */
+    if point.0 > 0 { field[(point.0-1) as usize][point.1 as usize] += 1; }                          /* N */
+    if point.0 > 0 && point.1+1 < n { field[(point.0-1) as usize][(point.1+1) as usize] += 1; }     /* NE */
+    if point.1 > 0 { field[point.0 as usize][(point.1-1) as usize] += 1; }                          /* W */ 
+    if point.1+1 < n { field[point.0 as usize][(point.1+1) as usize] += 1; }                        /* E */
+    if point.0+1 < m && point.1 > 0 { field[(point.0+1) as usize][(point.1-1) as usize] += 1; }     /* SW */
+    if point.0+1 < m { field[(point.0+1) as usize][point.1 as usize] += 1;}                         /* S */
+    if point.0+1 < m && point.1+1 < n { field[(point.0+1) as usize][(point.1+1) as usize] += 1; }   /* SE */
 }
 
 
