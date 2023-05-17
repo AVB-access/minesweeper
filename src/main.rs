@@ -29,7 +29,7 @@ fn main() {
     println!("Field sizes: {n}, {m}");
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
     let mut user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
-    let no_mines = ask_user_mines_no();
+    let no_mines = ask_user_mines_no(n, m);
     generate_mines(&mut field, n, m, no_mines);
 
     println!("-----------------------"); //Seperating debug print from above call
@@ -98,16 +98,16 @@ fn update_neighbours(field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
 
 
 //TODO limit to n*m - 1
-fn ask_user_mines_no() -> u8 {
+fn ask_user_mines_no(n:u8, m:u8) -> u8 {
     let mut mines = 0;
 
-    while mines == 0 {
+    loop {
         print!("Enter number of desired mines (min 1): ");
         let _ = stdout().flush();
         read_u8(&mut mines);
 
-        if mines != 0 { break; }
-        print!("Invalid number of mines! Try again: ");
+        if mines != 0 && mines <= (n*m)-1 { break; }
+        println!("Invalid number of mines! Try again.");
         let _ = stdout().flush();
     }
 
@@ -133,7 +133,7 @@ fn ask_user_selection(n:u8, m:u8) -> (u8, u8) {
         let _ = stdout().flush();
         
         read_u8(&mut y);
-        if y < n { break; }
+        if y < m { break; }
 
         print!("Out of bounds! Try again: ");
         let _ = stdout().flush();
