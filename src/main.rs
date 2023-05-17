@@ -4,33 +4,41 @@ use std::collections::HashSet;
 
 /**
  * TODO: 
- *  - Hide the field from user view
  *  - Ask the user for spots to click
  *  - Render the open spots
  *  - Build the UI
+ *  - Only generate mines after first spot check
  * 
  *  Could be nice:
- *      - Only generate mines after first spot check
  *      - Hide the mine locations in memory some how? (Could be way harder than nessiary for this scope)
  */
 
 /**
  * Dev ideas:
- *  - Field is covered in ?s for text version
- *  - Keep a second Vec to keep track of what the user has reveiled
- *      - Fill with boolean 0/1 for visible/not
+ *  - Field is covered in ?s for text version (working)
+ *  - Keep a second Vec to keep track of what the user has reveiled (working)
+ *      - Fill with boolean 0/1 for visible/not (working)
+ *  - Now when user selects a spot reveal it
+ *      - Later also reveal other connected spots
+ * 
  */
 fn main() {
     let (mut n, mut m) = (0u8,0u8);
 
-    get_user_in(&mut n, &mut m);
+    get_field_size(&mut n, &mut m);
     println!("Field sizes: {n}, {m}");
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
-    let mut _user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
-    let _no_mines = generate_mines(&mut field, n, m);
+    let mut user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
+    let no_mines = ask_user_mines_no();
+    generate_mines(&mut field, n, m, no_mines);
 
     println!("-----------------------"); //Seperating debug print from above call
     debug_print_field(&field);
+    println!("-----------------------"); //Seperating debug print from above call
+    print_field(&field, &user_visible_field);
+
+    let (x,y) = ask_user_selection(n, m);
+    println!("User requested (x,y) = ({},{})", x,y);
 }
 
 /**
@@ -43,9 +51,8 @@ fn main() {
  * 
  * Returns: The number of mines put on the field
  */
-fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8) -> u8 {
+fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8) -> u8 {
     let mut set_mines: HashSet<(u8,u8)> = HashSet::new();
-    let no_mines = ask_user_mines_no(); // TODO move this to main?
     let mut curr_mines = 0;
     let mut rng = rand::thread_rng();
 
@@ -93,19 +100,60 @@ fn update_neighbours(field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
 //TODO limit to n*m - 1
 fn ask_user_mines_no() -> u8 {
     let mut mines = 0;
-    let mut input_buffer = String::new();
 
     while mines == 0 {
         print!("Enter number of desired mines (min 1): ");
         let _ = stdout().flush();
-        stdin().read_line(&mut input_buffer).expect("Failed to read from stdin.");
-        mines = match input_buffer.trim_end().parse::<u8>() {
-            Ok(num) => num,
-            Err(err) => { eprintln!("Error parsing number in {input_buffer}: {err}"); 0 }
-        }
+        read_u8(&mut mines);
+
+        if mines != 0 { break; }
+        print!("Invalid number of mines! Try again: ");
+        let _ = stdout().flush();
     }
 
     return mines;
+}
+
+fn ask_user_selection(n:u8, m:u8) -> (u8, u8) {
+    let (mut x, mut y) = (0u8, 0u8);
+
+    loop {
+        print!("Enter the x coordinate: ");
+        let _ = stdout().flush();
+        
+        read_u8(&mut x);
+        if x < n { break; }
+
+        print!("Out of bounds! Try again: ");
+        let _ = stdout().flush();
+    }
+
+    loop {
+        print!("Enter the y coordinate: ");
+        let _ = stdout().flush();
+        
+        read_u8(&mut y);
+        if y < n { break; }
+
+        print!("Out of bounds! Try again: ");
+        let _ = stdout().flush();
+    }
+
+    return (x,y);
+}
+
+fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>) {
+    for (i, row) in field.iter().enumerate() {
+        for (j, colmn) in row.iter().enumerate() {
+            if seen[i][j] {
+                if *colmn == -1 { print!("X "); }
+                else { print!("{} ", colmn); }
+            } else {
+                print!("? ");
+            }
+        }
+        println!();
+    }
 }
 
 fn debug_print_field(field: &Vec<Vec<i8>>) {
@@ -127,39 +175,40 @@ fn debug_print_field_raw(field: &Vec<Vec<i8>>) {
     }
 }
 
-fn _debug_print_user_field(field: &Vec<Vec<bool>>) {
-    for (_i, row) in field.iter().enumerate() {
-        for (_j, colmn) in row.iter().enumerate() {
-            if !*colmn { print!("? "); }
-            else { print!("{} ", colmn); } 
-        }
-        println!();
+/**
+ * Read an int from stdin and return the value
+ * Forces a retry on parsing, but no other checks
+ */
+fn read_u8(x: &mut u8) {
+    let mut input_buffer = String::new();
+
+    loop {
+        input_buffer.clear();
+        stdin().read_line(&mut input_buffer).expect("Failed to read line.");
+        *x = match input_buffer.trim_end().parse::<u8>() {
+            Ok(num) => num,
+            Err(err) => { eprintln!("Error parsing number {input_buffer}: {err}, try again."); continue; }
+        };
+        break;
     }
 }
 
-fn get_user_in(n:&mut u8, m:&mut u8) {
-    let mut input_buffer = String::new();
-    loop {
-        print!("Enter the length of the field (min 3): ");
+fn get_field_size(n:&mut u8, m:&mut u8) {
+    print!("Enter the height of the field (min 3): ");
+    let _ = stdout().flush();
+    loop { 
+        read_u8(n); 
+        if *n != 0 && *n >= 3 { break; }
+        print!("Invalid number, please try again: "); 
         let _ = stdout().flush();
-        stdin().read_line(&mut input_buffer).expect("Failed to read line.");
-        *n = match input_buffer.trim_end().parse::<u8>() { 
-            Ok(num) => num, 
-            Err(err) => { eprintln!("Error parsing number in {input_buffer}: {err}"); 0 }
-        };
-        input_buffer.clear();
-        if *n != 0 { break; }
     }
 
-    loop {
-        print!("Enter the width of the field (min 3): ");
+    print!("Enter the width of the field (min 3): ");
+    let _ = stdout().flush();
+    loop { 
+        read_u8(m); 
+        if *m != 0 && *m >= 3 { break; }
+        print!("Invalid number, please try again: ");
         let _ = stdout().flush();
-        stdin().read_line(&mut input_buffer).expect("Failed to read input.");
-        *m = match input_buffer.trim().parse::<u8>() { 
-            Ok(num) => num, 
-            Err(err) => { eprintln!("Error parsing number in {input_buffer}: {err}"); 0 }
-        };
-        input_buffer.clear();
-        if *m != 0 { break; }
     }
 }
