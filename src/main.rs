@@ -1,6 +1,7 @@
 use std::io::{stdin, stdout, Write};
 use rand::Rng;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 /**
  * TODO: 
@@ -39,19 +40,80 @@ fn main() {
 
     let (x,y) = ask_user_selection(n, m);
     println!("User requested (x,y) = ({},{})", x,y);
+    handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field);
+    print_field(&field, &user_visible_field);
 }
 
 /**
- * Ask the user for the number of requested mines, place them on the field, then return that number
+ * TODO: Check for first turn, maybe as bool in main
+* Check spot:
+*  - Has it been revealed already?
+*  - Is it on a mine?
+*  - Otherwise reveal it
+*/
+fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>) {
+    //Check spot:
+    if field[x][y] == -1{
+        return; //TODO return End game
+    }else if seen[x][y]{
+        return; //TODO return try again
+    }
+
+    seen[x][y] = true;
+}
+
+/**
+* Revealing: (seperate function)
+*  - Check spot as visible(seen)
+*  - neighbour is 0, reveal that spot as well
+*      - breadth first search of neighbours?
+*/
+fn _reveal_neighbours(x:u8, y:u8, _field: &Vec<Vec<i8>>, _seen: &mut Vec<Vec<bool>>) {
+    let mut deq = VecDeque::from([(x,y)]); // put current spot in queue
+
+    // check each neighbour if it is 0
+    while !deq.is_empty() {
+        
+        // reveal that spot
+        // move onto next
+    }
+}
+
+/**
+ * Get the neighbouring spots of a given point
+ * Out of bounds are set to -2
+ * 
+ * Returns array structured as: [NW, N, NE,E,W,SW,S,SE]
+ */
+fn _get_neighbours(x:usize, y:usize, field: &Vec<Vec<i8>>) -> [i8;8] {
+    let mut neighbours: [i8;8] = [0;8];
+
+    //top row
+    neighbours[0] = if x == 0 || y == 0 { -2 } else { field[x-1][y-1] };
+    neighbours[1] = if x == 0 { -2 } else { field[x-1][y] };
+    neighbours[2] = if x == 0 || y + 1 >= field[0].len() { -2 } else { field[x-1][y+1] };
+    
+    //same row
+    neighbours[3] = if y == 0 { -2 } else { field[x][y-1] };
+    neighbours[4] = if y + 1 >= field[0].len() { -2 } else { field[x][y+1] };
+
+    //bottom row
+    neighbours[5] = if x + 1 >= field.len() || y == 0 { -2 } else { field[x+1][y-1] };
+    neighbours[6] = if x + 1 >= field.len() { -2 } else { field[x+1][y] };
+    neighbours[7] = if x + 1 >= field.len() || y + 1 >= field[0].len() { -2 } else { field[x+1][y+1] };
+
+    return neighbours;
+}
+
+/**
+ * Place requested mines on the field, updating the neighbours as we go
  * 
  * Params: 
  *  - field: The mine field to place the mines in (set to -1)
  *  - n: the length of the field
  *  - m: the width of the field
- * 
- * Returns: The number of mines put on the field
  */
-fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8) -> u8 {
+fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8) {
     let mut set_mines: HashSet<(u8,u8)> = HashSet::new();
     let mut curr_mines = 0;
     let mut rng = rand::thread_rng();
@@ -70,8 +132,6 @@ fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8) -> u8 {
     }
 
     debug_print_field_raw(&field);
-
-    return no_mines;
 }
 
 /**
@@ -96,8 +156,6 @@ fn update_neighbours(field: &mut Vec<Vec<i8>>, m: u8, n: u8, point: &(u8,u8)) {
         { field[(point.0+1) as usize][(point.1+1) as usize] += 1; }                         /* SE */
 }
 
-
-//TODO limit to n*m - 1
 fn ask_user_mines_no(n:u8, m:u8) -> u8 {
     let mut mines = 0;
 
@@ -210,5 +268,52 @@ fn get_field_size(n:&mut u8, m:&mut u8) {
         if *m != 0 && *m >= 3 { break; }
         print!("Invalid number, please try again: ");
         let _ = stdout().flush();
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::vec;
+
+    use crate::get_neighbours;
+
+    #[test]
+    fn get_neighbours_basic_test() {
+        let dummy_vec: Vec<Vec<i8>> = vec![vec![1,2,3], vec![4,0,5], vec![6,7,8]];
+
+        let result = get_neighbours(1, 1, &dummy_vec);
+        assert_eq!(result, [1,2,3,4,5,6,7,8]);
+    }
+
+    #[test]
+    fn get_neighbours_outofbounds_upper() {
+        let dummy_vec: Vec<Vec<i8>> = vec![vec![1,0,2], vec![3,4,5], vec![-1,-1,-1]];
+
+        let result = get_neighbours(0, 1, &dummy_vec);
+        assert_eq!(result, [-2,-2,-2,1,2,3,4,5]);
+    }
+
+    #[test]
+    fn get_neighbours_outofbounds_left() {
+        let dummy_vec: Vec<Vec<i8>> = vec![vec![1,2,8], vec![0,3,8], vec![4,5,8]];
+
+        let result = get_neighbours(1, 0, &dummy_vec);
+        assert_eq!(result, [-2,1,2,-2,3,-2,4,5]);
+    }
+    
+    #[test]
+    fn get_neighbours_outofbounds_right() {
+        let dummy_vec: Vec<Vec<i8>> = vec![vec![8,1,2], vec![8,3,0], vec![8,4,5]];
+
+        let result = get_neighbours(1, 2, &dummy_vec);
+        assert_eq!(result, [1,2,-2,3,-2,4,5,-2]);
+    }
+
+    #[test]
+    fn get_neighbours_outofbounds_lower() {
+        let dummy_vec: Vec<Vec<i8>> = vec![vec![8,8,8], vec![1,2,3], vec![4,0,5]];
+
+        let result = get_neighbours(2, 1, &dummy_vec);
+        assert_eq!(result, [1,2,3,4,5,-2,-2,-2]);
     }
 }
