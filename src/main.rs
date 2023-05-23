@@ -26,18 +26,20 @@ fn main() {
     let (mut n, mut m) = (0u8,0u8);
 
     get_field_size(&mut n, &mut m);
-    println!("Field sizes: {n}, {m}");
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
     let mut user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
     let no_mines = ask_user_mines_no(n, m);
-    generate_mines(&mut field, n, m, no_mines);
+
+    print_opening(n, m);
+
+    let (x,y) = ask_user_selection(n, m);
+    generate_mines(&mut field, n, m, no_mines, x, y);
 
     println!("-----------------------"); //Seperating debug print from above call
     debug_print_field(&field);
     println!("-----------------------"); //Seperating debug print from above call
     print_field(&field, &user_visible_field);
 
-    let (x,y) = ask_user_selection(n, m);
     println!("User requested (x,y) = ({},{})", x,y);
     let result = handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field);
     print!("Guess state was a: ");
@@ -149,8 +151,11 @@ fn get_neighbours(x:usize, y:usize, field: &Vec<Vec<i8>>) -> [i8;8] {
  *  - field: The mine field to place the mines in (set to -1)
  *  - n: the length of the field
  *  - m: the width of the field
+ *  - no_minds: # of minds to generate
+ *  - x: X coord of the starting position
+ *  - y: Y coord of the starting position
  */
-fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8) {
+fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8, x_user:u8, y_user:u8) {
     let mut set_mines: HashSet<(u8,u8)> = HashSet::new();
     let mut curr_mines = 0;
     let mut rng = rand::thread_rng();
@@ -159,6 +164,7 @@ fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8) {
         //Generate 2 random numbers
         let y = rng.gen_range(0..n);
         let x = rng.gen_range(0..m);
+        if x == x_user && y == y_user { continue; }
 
         //Check if the spot is already a mine
         if set_mines.insert((x,y)) {
@@ -235,6 +241,15 @@ fn ask_user_selection(n:u8, m:u8) -> (u8, u8) {
     }
 
     return (x,y);
+}
+
+fn print_opening(n:u8, m:u8) {
+    for _ in 0..n {
+        for _ in 0..m {
+            print!("? ");
+        }
+        println!();
+    }
 }
 
 fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>) {
