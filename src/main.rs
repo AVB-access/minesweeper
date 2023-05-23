@@ -5,10 +5,9 @@ use std::collections::VecDeque;
 
 /**
  * TODO: 
- *  - Ask the user for spots to click
+ *  - Only generate mines after first spot check
  *  - Render the open spots
  *  - Build the UI
- *  - Only generate mines after first spot check
  * 
  *  Could be nice:
  *      - Hide the mine locations in memory some how? (Could be way harder than nessiary for this scope)
@@ -60,6 +59,7 @@ fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<b
     }
 
     seen[x][y] = true;
+    reveal_neighbours(x as i32, y as i32, field, seen);
 }
 
 /**
@@ -68,24 +68,48 @@ fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<b
 *  - neighbour is 0, reveal that spot as well
 *      - breadth first search of neighbours?
 */
-fn _reveal_neighbours(x:u8, y:u8, _field: &Vec<Vec<i8>>, _seen: &mut Vec<Vec<bool>>) {
+fn reveal_neighbours(x:i32, y:i32, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>) {
     let mut deq = VecDeque::from([(x,y)]); // put current spot in queue
+    let mut explored: HashSet<(i32,i32)> = HashSet::new();
 
     // check each neighbour if it is 0
     while !deq.is_empty() {
-        
-        // reveal that spot
-        // move onto next
+        let (x, y) = deq.pop_front().expect("Error popping from deq.");
+        let neighbours = get_neighbours(x as usize, y as usize, field);
+        explored.insert((x,y));
+
+        for (i, spot) in neighbours.iter().enumerate() {
+            if neighbours[i] == -2 { continue; }
+
+            let (diff_x, diff_y) = translate_to_grid(i as i32);
+            let curr_spot = ((x + diff_x), (y+diff_y));
+
+            if *spot == 0 && !explored.contains(&curr_spot) { deq.push_back(curr_spot); }
+            seen[curr_spot.0 as usize][curr_spot.1 as usize] = true; // mark as visible
+        }
     }
 }
 
+fn translate_to_grid(i:i32) -> (i32, i32) {
+    match i {
+        0 => (-1, -1),
+        1 => (-1, 0),
+        2 => (-1, 1),
+        3 => (0, -1),
+        4 => (0, 1),
+        5 => (1, -1),
+        6 => (1, 0),
+        7 => (1, 1),
+        _ => panic!()
+    }
+}
 /**
  * Get the neighbouring spots of a given point
  * Out of bounds are set to -2
  * 
  * Returns array structured as: [NW, N, NE,E,W,SW,S,SE]
  */
-fn _get_neighbours(x:usize, y:usize, field: &Vec<Vec<i8>>) -> [i8;8] {
+fn get_neighbours(x:usize, y:usize, field: &Vec<Vec<i8>>) -> [i8;8] {
     let mut neighbours: [i8;8] = [0;8];
 
     //top row
@@ -275,8 +299,44 @@ fn get_field_size(n:&mut u8, m:&mut u8) {
 mod test {
     use std::vec;
 
-    use crate::get_neighbours;
+    use crate::{get_neighbours, reveal_neighbours};
 
+    //REVEAL NEIGHBOURS TESTS
+    #[test]
+    fn reveal_neighbours_basic_test() {
+        let dummy_field: Vec<Vec<i8>> = vec![vec![1,2,3], vec![4,0,5], vec![6,7,8]];
+        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false], 
+                                            vec![false,false,false], 
+                                            vec![false,false,false]];
+        let expected: Vec<Vec<bool>> = vec![vec![true,true,true], 
+                                            vec![true,false,true], 
+                                            vec![true,true,true]];
+        reveal_neighbours(1, 1, &dummy_field, &mut dummy_seen);
+        assert_eq!(dummy_seen, expected);
+    }
+    #[test]
+    fn reveal_neighbours_cascade_test() {
+        let dummy_field: Vec<Vec<i8>> = vec![vec![1,1,1,1,1], 
+                                             vec![1,1,0,1,1], 
+                                             vec![1,0,1,0,1],
+                                             vec![1,1,0,1,1],
+                                             vec![1,1,1,1,1]];
+        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false,false, false], 
+                                                  vec![false,false,false,false, false], 
+                                                  vec![false,false,false,false, false],
+                                                  vec![false,false,false,false, false],
+                                                  vec![false,false,false,false, false]];
+        let expected: Vec<Vec<bool>> = vec![vec![false,true,true,true,false], 
+                                            vec![true,true,true,true,true], 
+                                            vec![true,true,true,true,true],
+                                            vec![true,true,true,true,true],
+                                            vec![false,true,true,true,false]];
+
+        reveal_neighbours(2, 2, &dummy_field, &mut dummy_seen);
+        assert_eq!(dummy_seen, expected);
+    }
+    
+    //GET NEIGHBOURS TESTS
     #[test]
     fn get_neighbours_basic_test() {
         let dummy_vec: Vec<Vec<i8>> = vec![vec![1,2,3], vec![4,0,5], vec![6,7,8]];
