@@ -22,7 +22,7 @@ fn main() {
     let mut user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
     let mut placed_flags: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
     let no_mines = ask_user_mines_no(n, m);
-    let mut guessed_mines: u8 = 0;
+    let (mut guessed_mines, mut real_mines) = (0u8,0u8);
     let mut game_running:bool = true;
 
     print_opening(n, m);
@@ -31,12 +31,13 @@ fn main() {
     let _ = handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field);
     print_field(&field, &user_visible_field, &placed_flags);
 
-    while game_running { //or while guessed_mines < no_mines? (Need to check for valid mines)
+    while game_running && real_mines < no_mines {
+        println!("Remaining mines: {}", no_mines - guessed_mines);
         (y,x) = ask_user_selection(n, m);
         print_field(&field, &user_visible_field, &placed_flags);
         
         let result = handle_open_or_flag(x, y, &field, &mut user_visible_field, 
-                                                    &mut placed_flags, &mut guessed_mines);
+                                                    &mut placed_flags, &mut guessed_mines, &mut real_mines);
         print!("Guess state was a: ");
         match result {
             GuessState::Exploded => { println!("Death!"); game_running = false; },
@@ -44,6 +45,12 @@ fn main() {
             GuessState::Success => println!("Safe!")
         };
         print_field(&field, &user_visible_field, &placed_flags);
+    }
+
+    if real_mines == no_mines {
+        println!("You Win!");
+    }else {
+        println!("Oops, you died. Try again?");
     }
 }
 
@@ -56,7 +63,9 @@ fn main() {
  * 
  * ASSUMES VALID COORDINATES
  */
-fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8) -> GuessState {
+fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, 
+                        flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8,
+                        real_mines: &mut u8) -> GuessState {
     print!("Reveal (r) or flag (f): ");
     let _ = stdout().flush();
     let mut input_buffer = String::new();
@@ -67,8 +76,8 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
         match &*input_buffer.trim_end().to_lowercase() {
             "reveal" => return handle_user_guess(x as usize, y as usize, field, seen),
             "r" => return handle_user_guess(x as usize, y as usize, field, seen),
-            "flag" => return handle_place_flag(x as usize, y as usize, flags, guessed_mines),
-            "f" => return handle_place_flag(x as usize, y as usize, flags, guessed_mines),
+            "flag" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines),
+            "f" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines),
             _ => { println!("Please respond reveal (r) or flag (f)."); continue; } 
         };
     }
@@ -79,12 +88,15 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
  * increments or decrements mine count
  * Returns success 
  */
-fn handle_place_flag(x: usize, y:usize, flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8) -> GuessState{
+fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Vec<bool>>, 
+                        guessed_mines: &mut u8, real_mines: &mut u8) -> GuessState{
     if flags[x][y] {
         *guessed_mines -= 1;
+        if field[x][y] == -1 { *real_mines -= 1; }
         flags[x][y] = false;
     }else {
         *guessed_mines += 1;
+        if field[x][y] == -1 { *real_mines += 1; }
         flags[x][y] = true;
     }
     return GuessState::Success
