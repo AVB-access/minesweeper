@@ -3,11 +3,7 @@ use rand::Rng;
 use std::collections::{ HashSet, VecDeque };
 
 /**
- * TODO: 
- *  - place a flag
- *  - Run a full game
- *      - Check for death state
- *      - Check for success state
+ * TODO:
  *  - Build the UI
  * 
  *  Could be nice:
@@ -28,13 +24,13 @@ fn main() {
     print_opening(n, m);
     let (mut y, mut x) = ask_user_selection(n, m);
     generate_mines(&mut field, n, m, no_mines, x, y);
-    let _ = handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field);
+    let _ = handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field, &placed_flags);
     print_field(&field, &user_visible_field, &placed_flags);
 
     while game_running && real_mines < no_mines {
         println!("Remaining mines: {}", no_mines - guessed_mines);
         (y,x) = ask_user_selection(n, m);
-        print_field(&field, &user_visible_field, &placed_flags);
+        //print_field(&field, &user_visible_field, &placed_flags);
         
         let result = handle_open_or_flag(x, y, &field, &mut user_visible_field, 
                                                     &mut placed_flags, &mut guessed_mines, &mut real_mines);
@@ -59,7 +55,7 @@ fn main() {
  * Flag -> Places or removes a flag, increments or decrements mine count
  * Reveal -> Reveals the space on the field
  * 
- * Returns success of the guess, flag always returns success
+ * Returns success of the guess
  * 
  * ASSUMES VALID COORDINATES
  */
@@ -74,10 +70,10 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
         input_buffer.clear();
         stdin().read_line(&mut input_buffer).expect("Failed to read line.");
         match &*input_buffer.trim_end().to_lowercase() {
-            "reveal" => return handle_user_guess(x as usize, y as usize, field, seen),
-            "r" => return handle_user_guess(x as usize, y as usize, field, seen),
-            "flag" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines),
-            "f" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines),
+            "reveal" => return handle_user_guess(x as usize, y as usize, field, seen, flags),
+            "r" => return handle_user_guess(x as usize, y as usize, field, seen, flags),
+            "flag" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines, seen),
+            "f" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines, seen),
             _ => { println!("Please respond reveal (r) or flag (f)."); continue; } 
         };
     }
@@ -89,7 +85,9 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
  * Returns success 
  */
 fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Vec<bool>>, 
-                        guessed_mines: &mut u8, real_mines: &mut u8) -> GuessState{
+                        guessed_mines: &mut u8, real_mines: &mut u8, seen: &Vec<Vec<bool>>) -> GuessState{
+    if seen[x][y] { return GuessState::AlreadySeen; }
+
     if flags[x][y] {
         *guessed_mines -= 1;
         if field[x][y] == -1 { *real_mines -= 1; }
@@ -107,13 +105,13 @@ fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Ve
 * Has it already been revealed?
 * Is it a mine?
 */
-fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>) -> GuessState {
+fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, flags: &Vec<Vec<bool>>) -> GuessState {
     //Check spot:
-    if field[x][y] == -1{
+    if seen[x][y] || flags[x][y] {
+        return GuessState::AlreadySeen;
+    }else if field[x][y] == -1 {
         seen[x][y] = true;
         return GuessState::Exploded;
-    }else if seen[x][y]{
-        return GuessState::AlreadySeen;
     }
 
     seen[x][y] = true;
@@ -223,8 +221,6 @@ fn generate_mines(field: &mut Vec<Vec<i8>>, n: u8, m: u8, no_mines: u8, x_user:u
             update_neighbours(field, m, n, &(x,y))
         }else { continue; /*try again*/ } 
     }
-
-    debug_print_field_raw(&field);
 }
 
 /**
@@ -324,17 +320,6 @@ fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>, flags: &Vec<Vec<bool
     println!("------------------------------");
 }
 
-fn debug_print_field_raw(field: &Vec<Vec<i8>>) {
-    println!("*********DEBUG PRINT*********");
-    for (_i, row) in field.iter().enumerate() {
-        for (_j, colmn) in row.iter().enumerate() {
-            print!("{} ", colmn);
-        }
-        println!();
-    }
-    println!("*********DEBUG PRINT*********");
-}
-
 /**
  * Read an int from stdin and return the value
  * Forces a retry on parsing, but no other checks
@@ -377,7 +362,29 @@ fn get_field_size(n:&mut u8, m:&mut u8) {
 mod test {
     use std::vec;
 
-    use crate::{get_neighbours, reveal_neighbours};
+    use crate::{get_neighbours, reveal_neighbours, handle_user_guess, handle_place_flag};
+    //DEBUGGING TESTS
+    #[test]
+    fn not_showing_flag_test() {
+        let mut field: Vec<Vec<i8>> = vec![vec![0i8;10];10];
+        field[7][8] = -1; field[6][7] = 1; field[6][8] = 1; field[6][9] = 1;
+        field[7][7] = 1; field[7][9] = 1;
+        field[8][7] = 1; field[8][8] = 1; field[8][9] = 1; 
+        let mut seen: Vec<Vec<bool>> = vec![vec![false;10];10];
+        let mut flags: Vec<Vec<bool>> = vec![vec![false;10];10];
+        let mut guesses: u8 = 0;
+        let mut real: u8 = 0;
+
+        let mut expected: Vec<Vec<bool>> = vec![vec![true;10];10];
+        expected[7][9] = false; expected[7][8] = false;
+        handle_user_guess(5, 5, &field, &mut seen, &flags);
+        assert_eq!(expected, seen);
+
+        let mut expected_flags: Vec<Vec<bool>> = vec![vec![false;10];10];
+        expected_flags[7][8] = true;
+        handle_place_flag(7,8, &field, &mut flags, &mut guesses, &mut real, &seen);
+        assert_eq!(expected_flags, flags);
+    }
 
     //REVEAL NEIGHBOURS TESTS
     #[test]
@@ -438,6 +445,7 @@ mod test {
 
     #[test]
     fn reveal_neighbours_hide_mines_basic_test() {
+        
         let dummy_field: Vec<Vec<i8>> = vec![vec![1,1,1,1,1], 
                                              vec![1,-1,-1,-1,1], 
                                              vec![1,-1,1,-1,1],
