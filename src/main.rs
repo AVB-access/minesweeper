@@ -1,6 +1,6 @@
 use std::io::{stdin, stdout, Write};
 use rand::Rng;
-use std::collections::{ HashSet, VecDeque};
+use std::collections::{ HashSet, VecDeque };
 
 /**
  * TODO: 
@@ -22,29 +22,29 @@ fn main() {
     let mut user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
     let mut placed_flags: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
     let no_mines = ask_user_mines_no(n, m);
-    // let mut guessed_mines = 0;
+    let mut guessed_mines: u8 = 0;
+    let mut game_running:bool = true;
+
     print_opening(n, m);
-
-    let (x,y) = ask_user_selection(n, m);
+    let (mut y, mut x) = ask_user_selection(n, m);
     generate_mines(&mut field, n, m, no_mines, x, y);
-    //Ask open or flag
-    println!("-----------------------"); //Seperating debug print from above call
-    debug_print_field(&field);
-    println!("-----------------------"); //Seperating debug print from above call
+    let _ = handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field);
     print_field(&field, &user_visible_field, &placed_flags);
 
-    //Main game loop here
-    //While game over = false or guessed_mines = no_mines
-    println!("User requested (x,y) = ({},{})", x,y);
-    
-    let result = handle_open_or_flag(x, y, &field, &mut user_visible_field, &mut placed_flags);
-    print!("Guess state was a: ");
-    match result {
-        GuessState::Exploded => println!("Death!"),
-        GuessState::AlreadySeen => println!("Retry!"),
-        GuessState::Success => println!("Safe!")
-    };
-    print_field(&field, &user_visible_field, &placed_flags);
+    while game_running { //or while guessed_mines < no_mines? (Need to check for valid mines)
+        (y,x) = ask_user_selection(n, m);
+        print_field(&field, &user_visible_field, &placed_flags);
+        
+        let result = handle_open_or_flag(x, y, &field, &mut user_visible_field, 
+                                                    &mut placed_flags, &mut guessed_mines);
+        print!("Guess state was a: ");
+        match result {
+            GuessState::Exploded => { println!("Death!"); game_running = false; },
+            GuessState::AlreadySeen => println!("Retry!"),
+            GuessState::Success => println!("Safe!")
+        };
+        print_field(&field, &user_visible_field, &placed_flags);
+    }
 }
 
 /**
@@ -56,7 +56,7 @@ fn main() {
  * 
  * ASSUMES VALID COORDINATES
  */
-fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, flags: &mut Vec<Vec<bool>>) -> GuessState {
+fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8) -> GuessState {
     print!("Reveal (r) or flag (f): ");
     let _ = stdout().flush();
     let mut input_buffer = String::new();
@@ -67,8 +67,8 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
         match &*input_buffer.trim_end().to_lowercase() {
             "reveal" => return handle_user_guess(x as usize, y as usize, field, seen),
             "r" => return handle_user_guess(x as usize, y as usize, field, seen),
-            "flag" => return handle_place_flag(x as usize, y as usize, flags),
-            "f" => return handle_place_flag(x as usize, y as usize, flags),
+            "flag" => return handle_place_flag(x as usize, y as usize, flags, guessed_mines),
+            "f" => return handle_place_flag(x as usize, y as usize, flags, guessed_mines),
             _ => { println!("Please respond reveal (r) or flag (f)."); continue; } 
         };
     }
@@ -76,11 +76,17 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
 
 /**
  * Sets the bool of the flags vector to true
- * 
+ * increments or decrements mine count
  * Returns success 
  */
-fn handle_place_flag(x: usize, y:usize, flags: &mut Vec<Vec<bool>>) -> GuessState{
-    flags[x][y] = !flags[x][y];
+fn handle_place_flag(x: usize, y:usize, flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8) -> GuessState{
+    if flags[x][y] {
+        *guessed_mines -= 1;
+        flags[x][y] = false;
+    }else {
+        *guessed_mines += 1;
+        flags[x][y] = true;
+    }
     return GuessState::Success
 }
 
@@ -92,6 +98,7 @@ fn handle_place_flag(x: usize, y:usize, flags: &mut Vec<Vec<bool>>) -> GuessStat
 fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>) -> GuessState {
     //Check spot:
     if field[x][y] == -1{
+        seen[x][y] = true;
         return GuessState::Exploded;
     }else if seen[x][y]{
         return GuessState::AlreadySeen;
@@ -302,25 +309,18 @@ fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>, flags: &Vec<Vec<bool
         }
         println!();
     }
-}
-
-fn debug_print_field(field: &Vec<Vec<i8>>) {
-    for (_i, row) in field.iter().enumerate() {
-        for (_j, colmn) in row.iter().enumerate() {
-            if *colmn == -1 { print!("X "); }
-            else { print!("{} ", colmn); } 
-        }
-        println!();
-    }
+    println!("------------------------------");
 }
 
 fn debug_print_field_raw(field: &Vec<Vec<i8>>) {
+    println!("*********DEBUG PRINT*********");
     for (_i, row) in field.iter().enumerate() {
         for (_j, colmn) in row.iter().enumerate() {
             print!("{} ", colmn);
         }
         println!();
     }
+    println!("*********DEBUG PRINT*********");
 }
 
 /**
