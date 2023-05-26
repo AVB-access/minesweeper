@@ -371,20 +371,20 @@ fn read_u8(x: &mut u8) {
 }
 
 fn get_field_size(n:&mut u8, m:&mut u8) {
-    print!("Enter the height of the field (min 3): ");
+    print!("Enter the height of the field (min 3, max 99): ");
     let _ = stdout().flush();
     loop { 
         read_u8(n); 
-        if *n != 0 && *n >= 3 { break; }
+        if *n >= 3 && *n <= 99 { break; }
         print!("Invalid number, please try again: "); 
         let _ = stdout().flush();
     }
 
-    print!("Enter the width of the field (min 3): ");
+    print!("Enter the width of the field (min 3, max 99): ");
     let _ = stdout().flush();
     loop { 
         read_u8(m); 
-        if *m != 0 && *m >= 3 { break; }
+        if *m >= 3 && *m <= 99 { break; }
         print!("Invalid number, please try again: ");
         let _ = stdout().flush();
     }
