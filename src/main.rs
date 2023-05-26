@@ -1,4 +1,4 @@
-use std::io::{stdin, stdout, Write};
+use std::{io::{stdin, stdout, Write}};
 use rand::Rng;
 use std::collections::{ HashSet, VecDeque };
 
@@ -295,41 +295,60 @@ fn ask_user_selection(n:u8, m:u8) -> (u8, u8) {
 }
 
 fn print_opening(n:u8, m:u8) {
+    let spaces = " ".repeat((m as f32/10 as f32).ceil() as usize);
+
     for i in 0..n {
-        print!("{}:\t", i);
+        if i < 10 { print!("{}:{}", i, spaces); }
+            else { print!("{}: ", i); } 
         for _ in 0..m {
-            print!("? ");
+            print!("?{}", spaces);
         }
         println!();
     }
-    print!("\t");
-    for _ in 0..m { print!("- "); }
+    print!("{}  ", spaces);
+    for _ in 0..m { print!("-{}", spaces); }
     println!();
-    print!("\t");
-    for i in 0..m { print!("{} ", i); }
+    print!("{}  ", spaces);
+    
+    for i in 0..m {
+        if i < 10 {
+            print!("{}{}", i, spaces);
+        }else { print!("{} ", i); }
+    }
     println!()
 }
 
 fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>, flags: &Vec<Vec<bool>>) {
+    let spaces = " ".repeat((field[0].len() as f32/10 as f32).ceil() as usize);
+
     for (i, row) in field.iter().enumerate() {
-        print!("{}:  ", i);
+        if i < 10 { print!("{}:{}", i, spaces); }
+            else { print!("{}: ", i); } 
         for (j, colmn) in row.iter().enumerate() {
             if seen[i][j] {
-                if *colmn == -1 { print!("X "); } //Maybe don't need this?
-                else { print!("{} ", colmn); }
+                if *colmn == -1 { 
+                    print!("X{}", spaces);
+                }else { 
+                    print!("{}{}", colmn, spaces);
+                }
             } else if flags[i][j] {
-                print!("# ");
+                print!("#{}", spaces);
             } else {
-                print!("? ");
+                print!("?{}", spaces);
             }
         }
         println!();
     }
-    print!("- - - ");
-    for _ in 0..field.len() { print!("- "); }
+    print!("{}  ", spaces);
+    for _ in 0..field[0].len() { print!("-{}", spaces); }
     println!();
-    print!("    ");
-    for i in 0..field[0].len() { print!("{} ", i); }
+    print!("{}  ", spaces);
+    
+    for i in 0..field[0].len() {
+        if i < 10 {
+            print!("{}{}", i, spaces);
+        }else { print!("{} ", i); }
+    }
     println!()
 }
 
