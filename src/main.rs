@@ -295,16 +295,24 @@ fn ask_user_selection(n:u8, m:u8) -> (u8, u8) {
 }
 
 fn print_opening(n:u8, m:u8) {
-    for _ in 0..n {
+    for i in 0..n {
+        print!("{}:\t", i);
         for _ in 0..m {
             print!("? ");
         }
         println!();
     }
+    print!("\t");
+    for _ in 0..m { print!("- "); }
+    println!();
+    print!("\t");
+    for i in 0..m { print!("{} ", i); }
+    println!()
 }
 
 fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>, flags: &Vec<Vec<bool>>) {
     for (i, row) in field.iter().enumerate() {
+        print!("{}:  ", i);
         for (j, colmn) in row.iter().enumerate() {
             if seen[i][j] {
                 if *colmn == -1 { print!("X "); } //Maybe don't need this?
@@ -317,7 +325,12 @@ fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>, flags: &Vec<Vec<bool
         }
         println!();
     }
-    println!("------------------------------");
+    print!("- - - ");
+    for _ in 0..field.len() { print!("- "); }
+    println!();
+    print!("    ");
+    for i in 0..field[0].len() { print!("{} ", i); }
+    println!()
 }
 
 /**
