@@ -4,7 +4,7 @@ use std::collections::{ HashSet, VecDeque };
 
 /**
  * TODO:
- *  - Build the UI
+ *  - Build the UI (Move to a new project?)
  * 
  *  Could be nice:
  *      - Hide the mine locations in memory some how? (Could be way harder than necessary for this scope)
@@ -15,7 +15,7 @@ fn main() {
 
     get_field_size(&mut n, &mut m);
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
-    let mut user_visible_field: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
+    let mut user_visible: HashSet<(u8,u8)> = HashSet::new();
     let mut placed_flags: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
     let no_mines = ask_user_mines_no(n, m);
     let (mut guessed_mines, mut real_mines) = (0u8,0u8);
@@ -24,15 +24,15 @@ fn main() {
     print_opening(n, m);
     let (mut y, mut x) = ask_user_selection(n, m);
     generate_mines(&mut field, n, m, no_mines, x, y);
-    let _ = handle_user_guess(x as usize, y as usize, &field, &mut user_visible_field, &placed_flags);
-    print_field(&field, &user_visible_field, &placed_flags);
+    let _ = handle_user_guess(x, y, &field, &mut user_visible, &placed_flags);
+    print_field(&field, &user_visible, &placed_flags);
 
     while game_running && real_mines < no_mines {
         println!("Remaining mines: {}", no_mines - guessed_mines);
         (y,x) = ask_user_selection(n, m);
         //print_field(&field, &user_visible_field, &placed_flags);
         
-        let result = handle_open_or_flag(x, y, &field, &mut user_visible_field, 
+        let result = handle_open_or_flag(x, y, &field, &mut user_visible, 
                                                     &mut placed_flags, &mut guessed_mines, &mut real_mines);
         print!("Guess state was a: ");
         match result {
@@ -40,7 +40,7 @@ fn main() {
             GuessState::AlreadySeen => println!("Retry!"),
             GuessState::Success => println!("Safe!")
         };
-        print_field(&field, &user_visible_field, &placed_flags);
+        print_field(&field, &user_visible, &placed_flags);
     }
 
     if real_mines == no_mines {
@@ -59,7 +59,7 @@ fn main() {
  * 
  * ASSUMES VALID COORDINATES
  */
-fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, 
+fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8, u8)>, 
                         flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8,
                         real_mines: &mut u8) -> GuessState {
     print!("Reveal (r) or flag (f): ");
@@ -70,8 +70,8 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
         input_buffer.clear();
         stdin().read_line(&mut input_buffer).expect("Failed to read line.");
         match &*input_buffer.trim_end().to_lowercase() {
-            "reveal" => return handle_user_guess(x as usize, y as usize, field, seen, flags),
-            "r" => return handle_user_guess(x as usize, y as usize, field, seen, flags),
+            "reveal" => return handle_user_guess(x, y, field, seen, flags),
+            "r" => return handle_user_guess(x, y, field, seen, flags),
             "flag" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines, seen),
             "f" => return handle_place_flag(x as usize, y as usize, field, flags, guessed_mines, real_mines, seen),
             _ => { println!("Please respond reveal (r) or flag (f)."); continue; } 
@@ -85,8 +85,8 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<boo
  * Returns success 
  */
 fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Vec<bool>>, 
-                        guessed_mines: &mut u8, real_mines: &mut u8, seen: &Vec<Vec<bool>>) -> GuessState{
-    if seen[x][y] { return GuessState::AlreadySeen; }
+                        guessed_mines: &mut u8, real_mines: &mut u8, seen: &HashSet<(u8, u8)>) -> GuessState{
+    if seen.contains(&(x as u8, y as u8)) { return GuessState::AlreadySeen; }
 
     if flags[x][y] {
         *guessed_mines -= 1;
@@ -105,16 +105,16 @@ fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Ve
 * Has it already been revealed?
 * Is it a mine?
 */
-fn handle_user_guess(x:usize,y:usize, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>, flags: &Vec<Vec<bool>>) -> GuessState {
+fn handle_user_guess(x:u8,y:u8, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8,u8)>, flags: &Vec<Vec<bool>>) -> GuessState {
     //Check spot:
-    if seen[x][y] || flags[x][y] {
+    if seen.contains(&(x, y)) || flags[x as usize][y as usize] {
         return GuessState::AlreadySeen;
-    }else if field[x][y] == -1 {
-        seen[x][y] = true;
+    }else if field[x as usize][y as usize] == -1 {
+        seen.insert((x,y));
         return GuessState::Exploded;
     }
 
-    seen[x][y] = true;
+    seen.insert((x,y));
     reveal_neighbours(x as i32, y as i32, field, seen);
     GuessState::Success
 }
@@ -130,7 +130,7 @@ enum GuessState {
 *  - Check spot as visible(seen)
 *  - neighbour is 0, reveal that spot as well
 */
-fn reveal_neighbours(x:i32, y:i32, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool>>) {
+fn reveal_neighbours(x:i32, y:i32, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8, u8)>) {
     let mut deq = VecDeque::from([(x,y)]); // put current spot in queue
     let mut explored: HashSet<(i32,i32)> = HashSet::new();
 
@@ -147,7 +147,7 @@ fn reveal_neighbours(x:i32, y:i32, field: &Vec<Vec<i8>>, seen: &mut Vec<Vec<bool
             let curr_spot = ((x + diff_x), (y+diff_y));
 
             if *spot == 0 && !explored.contains(&curr_spot) { deq.push_back(curr_spot); }
-            seen[curr_spot.0 as usize][curr_spot.1 as usize] = true; // mark as visible
+            seen.insert((curr_spot.0 as u8, curr_spot.1 as u8)); // mark as visible
         }
     }
 }
@@ -318,14 +318,14 @@ fn print_opening(n:u8, m:u8) {
     println!()
 }
 
-fn print_field(field: &Vec<Vec<i8>>, seen: &Vec<Vec<bool>>, flags: &Vec<Vec<bool>>) {
+fn print_field(field: &Vec<Vec<i8>>, seen: &HashSet<(u8, u8)>, flags: &Vec<Vec<bool>>) {
     let spaces = " ".repeat((field[0].len() as f32/10 as f32).ceil() as usize);
 
     for (i, row) in field.iter().enumerate() {
         if i < 10 { print!("{}:{}", i, spaces); }
             else { print!("{}: ", i); } 
         for (j, colmn) in row.iter().enumerate() {
-            if seen[i][j] {
+            if seen.contains(&(i as u8, j as u8)) {
                 if *colmn == -1 { 
                     print!("X{}", spaces);
                 }else { 
@@ -392,7 +392,7 @@ fn get_field_size(n:&mut u8, m:&mut u8) {
 
 #[cfg(test)]
 mod test {
-    use std::vec;
+    use std::{vec, collections::HashSet};
 
     use crate::{get_neighbours, reveal_neighbours, handle_user_guess, handle_place_flag};
     //DEBUGGING TESTS
@@ -402,15 +402,14 @@ mod test {
         field[7][8] = -1; field[6][7] = 1; field[6][8] = 1; field[6][9] = 1;
         field[7][7] = 1; field[7][9] = 1;
         field[8][7] = 1; field[8][8] = 1; field[8][9] = 1; 
-        let mut seen: Vec<Vec<bool>> = vec![vec![false;10];10];
+        let mut seen: HashSet<(u8, u8)> = HashSet::new();
         let mut flags: Vec<Vec<bool>> = vec![vec![false;10];10];
         let mut guesses: u8 = 0;
         let mut real: u8 = 0;
 
-        let mut expected: Vec<Vec<bool>> = vec![vec![true;10];10];
-        expected[7][9] = false; expected[7][8] = false;
         handle_user_guess(5, 5, &field, &mut seen, &flags);
-        assert_eq!(expected, seen);
+        assert!(!seen.contains(&(7, 9)));
+        assert!(!seen.contains(&(7, 8)));
 
         let mut expected_flags: Vec<Vec<bool>> = vec![vec![false;10];10];
         expected_flags[7][8] = true;
@@ -422,15 +421,16 @@ mod test {
     #[test]
     fn reveal_neighbours_basic_test() {
         let dummy_field: Vec<Vec<i8>> = vec![vec![1,2,3], vec![4,0,5], vec![6,7,8]];
-        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false], 
-                                            vec![false,false,false], 
-                                            vec![false,false,false]];
-        let expected: Vec<Vec<bool>> = vec![vec![true,true,true], 
-                                            vec![true,false,true], 
-                                            vec![true,true,true]];
+        let mut dummy_seen: HashSet<(u8, u8)> = HashSet::new();
+        let mut expected: HashSet<(u8, u8)> = HashSet::new();
+        expected.insert((0,0)); expected.insert((1,0)); expected.insert((2,0));
+        expected.insert((0,1)); expected.insert((2,1));
+        expected.insert((0,2)); expected.insert((1,2)); expected.insert((2,2));
+
         reveal_neighbours(1, 1, &dummy_field, &mut dummy_seen);
         assert_eq!(dummy_seen, expected);
     }
+
     #[test]
     fn reveal_neighbours_cascade_test() {
         let dummy_field: Vec<Vec<i8>> = vec![vec![1,1,1,1,1], 
@@ -438,16 +438,13 @@ mod test {
                                              vec![1,0,1,0,1],
                                              vec![1,1,0,1,1],
                                              vec![1,1,1,1,1]];
-        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false]];
-        let expected: Vec<Vec<bool>> = vec![vec![false,true,true,true,false], 
-                                            vec![true,true,true,true,true], 
-                                            vec![true,true,true,true,true],
-                                            vec![true,true,true,true,true],
-                                            vec![false,true,true,true,false]];
+        let mut dummy_seen: HashSet<(u8, u8)> = HashSet::new();
+        let mut expected: HashSet<(u8, u8)> = HashSet::new();
+        expected.insert((1,0)); expected.insert((2,0)); expected.insert((3,0));
+        expected.insert((0,1)); expected.insert((1,1)); expected.insert((2,1));expected.insert((3,1));expected.insert((4,1));
+        expected.insert((0,2)); expected.insert((1,2)); expected.insert((2,2));expected.insert((3,2));expected.insert((4,2));
+        expected.insert((0,3)); expected.insert((1,3)); expected.insert((2,3));expected.insert((3,3));expected.insert((4,3));
+        expected.insert((1,4)); expected.insert((2,4)); expected.insert((3,4));
 
         reveal_neighbours(2, 2, &dummy_field, &mut dummy_seen);
         assert_eq!(dummy_seen, expected);
@@ -460,16 +457,11 @@ mod test {
                                              vec![1,1,1,1,1],
                                              vec![1,1,1,1,1],
                                              vec![1,1,1,1,1]];
-        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false]];
-        let expected: Vec<Vec<bool>> = vec![vec![false,false,false,false,false], 
-                                            vec![false,true,true,true,false], 
-                                            vec![false,true,false,true,false],
-                                            vec![false,true,true,true,false],
-                                            vec![false,false,false,false,false]];
+        let mut dummy_seen: HashSet<(u8, u8)> = HashSet::new();
+        let mut expected: HashSet<(u8, u8)> = HashSet::new();
+        expected.insert((1,1)); expected.insert((2,1));expected.insert((3,1));
+        expected.insert((1,2)); expected.insert((3,2));
+        expected.insert((1,3)); expected.insert((2,3));expected.insert((3,3));
 
         reveal_neighbours(2, 2, &dummy_field, &mut dummy_seen);
         assert_eq!(dummy_seen, expected);
@@ -483,16 +475,8 @@ mod test {
                                              vec![1,-1,1,-1,1],
                                              vec![1,-1,-1,-1,1],
                                              vec![1,1,1,1,1]];
-        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false], 
-                                                  vec![false,false,true,false, false],
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false]];
-        let expected: Vec<Vec<bool>> = vec![vec![false,false,false,false,false], 
-                                            vec![false,false,false,false,false], 
-                                            vec![false,false,true,false,false],
-                                            vec![false,false,false,false,false],
-                                            vec![false,false,false,false,false]];
+        let mut dummy_seen: HashSet<(u8, u8)> = HashSet::new();
+        let expected: HashSet<(u8, u8)> = HashSet::new();
         reveal_neighbours(2, 2, &dummy_field, &mut dummy_seen);
         assert_eq!(dummy_seen, expected);
 
@@ -505,16 +489,13 @@ mod test {
                                              vec![-1,0,1,0,-1],
                                              vec![1,1,0,1,1],
                                              vec![1,1,-1,1,1]];
-        let mut dummy_seen: Vec<Vec<bool>> = vec![vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false], 
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false],
-                                                  vec![false,false,false,false, false]];
-        let expected: Vec<Vec<bool>> = vec![vec![false,true,false,true,false], 
-                                            vec![true,true,true,true,true], 
-                                            vec![false,true,true,true,false],
-                                            vec![true,true,true,true,true],
-                                            vec![false,true,false,true,false]];
+        let mut dummy_seen: HashSet<(u8, u8)> = HashSet::new();
+        let mut expected: HashSet<(u8, u8)> = HashSet::new();
+        expected.insert((1,0)); expected.insert((3,0));
+        expected.insert((0,1)); expected.insert((1,1)); expected.insert((2,1));expected.insert((3,1));expected.insert((4,1));
+        expected.insert((1,2)); expected.insert((2,2));expected.insert((3,2));
+        expected.insert((0,3)); expected.insert((1,3)); expected.insert((2,3));expected.insert((3,3));expected.insert((4,3));
+        expected.insert((1,4)); expected.insert((3,4));
 
         reveal_neighbours(2, 2, &dummy_field, &mut dummy_seen);
         assert_eq!(dummy_seen, expected);
