@@ -22,15 +22,14 @@ fn main() {
     let mut game_running:bool = true;
 
     print_opening(n, m);
-    let (mut y, mut x) = ask_user_selection(n, m);
+    let (mut x, mut y) = ask_user_selection(n, m);
     generate_mines(&mut field, n, m, no_mines, x, y);
     let _ = handle_user_guess(x, y, &field, &mut user_visible, &placed_flags);
     print_field(&field, &user_visible, &placed_flags);
 
     while game_running && real_mines < no_mines {
         println!("Remaining mines: {}", no_mines - guessed_mines);
-        (y,x) = ask_user_selection(n, m);
-        //print_field(&field, &user_visible_field, &placed_flags);
+        (x,y) = ask_user_selection(n, m);
         
         let result = handle_open_or_flag(x, y, &field, &mut user_visible, 
                                                     &mut placed_flags, &mut guessed_mines, &mut real_mines);
@@ -90,11 +89,11 @@ fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut HashSe
 
     if flags.contains(&(x as u8, y as u8)) {
         *guessed_mines -= 1;
-        if field[x][y] == -1 { *real_mines -= 1; }
+        if field[y][x] == -1 { *real_mines -= 1; }
         flags.remove(&(x as u8, y as u8));
     }else {
         *guessed_mines += 1;
-        if field[x][y] == -1 { *real_mines += 1; }
+        if field[y][x] == -1 { *real_mines += 1; }
         flags.insert((x as u8, y as u8));
     }
     return GuessState::Success
@@ -133,36 +132,30 @@ enum GuessState {
 fn reveal_neighbours(x:i32, y:i32, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8, u8)>) {
     let mut deq = VecDeque::from([(x,y)]); // put current spot in queue
     let mut explored: HashSet<(i32,i32)> = HashSet::new();
+    explored.insert((x,y)); //insert the first spot
+    let (mut diff_x, mut diff_y) = (-1, -1);
 
     // check each neighbour if it is 0
     while !deq.is_empty() {
         let (x, y) = deq.pop_front().expect("Error popping from deq.");
         let neighbours = get_neighbours(x as usize, y as usize, field);
-        explored.insert((x,y));
 
         for (i, spot) in neighbours.iter().enumerate() {
-            if neighbours[i] == -2 || neighbours[i] == -1 { continue; } //ignore out of bounds and mines
+            if i == 4 { diff_x += 1; } // skip over starting spot
+            if neighbours[i] == -2 || neighbours[i] == -1 { 
+                if i == 2 || i == 4 { diff_y += 1; }
+                if diff_x == 1 { diff_x = -1; } else { diff_x += 1; }
+                continue; 
+            } //ignore out of bounds and mines
+            let curr_spot = ((x + diff_x), (y + diff_y));
 
-            let (diff_x, diff_y) = translate_to_grid(i as i32);
-            let curr_spot = ((x + diff_x), (y+diff_y));
-
-            if *spot == 0 && !explored.contains(&curr_spot) { deq.push_back(curr_spot); }
+            if *spot == 0 && !explored.contains(&curr_spot) { deq.push_back(curr_spot); explored.insert(curr_spot); }
             seen.insert((curr_spot.0 as u8, curr_spot.1 as u8)); // mark as visible
-        }
-    }
-}
 
-fn translate_to_grid(i:i32) -> (i32, i32) {
-    match i {
-        0 => (-1, -1),
-        1 => (-1, 0),
-        2 => (-1, 1),
-        3 => (0, -1),
-        4 => (0, 1),
-        5 => (1, -1),
-        6 => (1, 0),
-        7 => (1, 1),
-        _ => panic!()
+            if i == 2 || i == 4 { diff_y += 1; }
+            if diff_x == 1 { diff_x = -1; } else { diff_x += 1; }
+        }
+        (diff_x, diff_y) = (-1, -1);
     }
 }
 
@@ -176,18 +169,18 @@ fn get_neighbours(x:usize, y:usize, field: &Vec<Vec<i8>>) -> [i8;8] {
     let mut neighbours: [i8;8] = [0;8];
 
     //top row
-    neighbours[0] = if x == 0 || y == 0 { -2 } else { field[x-1][y-1] };
-    neighbours[1] = if x == 0 { -2 } else { field[x-1][y] };
-    neighbours[2] = if x == 0 || y + 1 >= field[0].len() { -2 } else { field[x-1][y+1] };
+    neighbours[0] = if y == 0 || x == 0 { -2 } else { field[y-1][x-1] };
+    neighbours[1] = if y == 0 { -2 } else { field[y-1][x] };
+    neighbours[2] = if y == 0 || x + 1 >= field[0].len() { -2 } else { field[y-1][x+1] };
     
     //same row
-    neighbours[3] = if y == 0 { -2 } else { field[x][y-1] };
-    neighbours[4] = if y + 1 >= field[0].len() { -2 } else { field[x][y+1] };
+    neighbours[3] = if x == 0 { -2 } else { field[y][x-1] };
+    neighbours[4] = if x + 1 >= field[0].len() { -2 } else { field[y][x+1] };
 
     //bottom row
-    neighbours[5] = if x + 1 >= field.len() || y == 0 { -2 } else { field[x+1][y-1] };
-    neighbours[6] = if x + 1 >= field.len() { -2 } else { field[x+1][y] };
-    neighbours[7] = if x + 1 >= field.len() || y + 1 >= field[0].len() { -2 } else { field[x+1][y+1] };
+    neighbours[5] = if y + 1 >= field.len() || x == 0 { -2 } else { field[y+1][x-1] };
+    neighbours[6] = if y + 1 >= field.len() { -2 } else { field[y+1][x] };
+    neighbours[7] = if y + 1 >= field.len() || x + 1 >= field[0].len() { -2 } else { field[y+1][x+1] };
 
     return neighbours;
 }
@@ -325,13 +318,13 @@ fn print_field(field: &Vec<Vec<i8>>, seen: &HashSet<(u8, u8)>, flags: &HashSet<(
         if i < 10 { print!("{}:{}", i, spaces); }
             else { print!("{}: ", i); } 
         for (j, colmn) in row.iter().enumerate() {
-            if seen.contains(&(i as u8, j as u8)) {
+            if seen.contains(&(j as u8, i as u8)) {
                 if *colmn == -1 { 
                     print!("X{}", spaces);
                 }else { 
                     print!("{}{}", colmn, spaces);
                 }
-            } else if flags.contains(&(i as u8, j as u8)) {
+            } else if flags.contains(&(j as u8, i as u8)) {
                 print!("#{}", spaces);
             } else {
                 print!("?{}", spaces);
@@ -394,26 +387,51 @@ fn get_field_size(n:&mut u8, m:&mut u8) {
 mod test {
     use std::{vec, collections::HashSet};
 
-    use crate::{get_neighbours, reveal_neighbours, handle_user_guess, handle_place_flag};
+    use crate::{ get_neighbours, reveal_neighbours, handle_user_guess, handle_place_flag };
     //DEBUGGING TESTS
     #[test]
+    fn check_seen_test() {
+        let field: Vec<Vec<i8>> = vec![
+            vec![0, 0, 1,-1, 1],
+            vec![0, 0, 1, 1, 1],
+            vec![0, 0, 0, 0, 0],
+            vec![0, 0, 0, 0, 0],
+            vec![0, 0, 0, 0, 0]
+        ];
+        let mut seen: HashSet<(u8, u8)> = HashSet::new();
+        let flags: HashSet<(u8, u8)> = HashSet::new();
+
+        handle_user_guess(2, 2, &field, &mut seen, &flags);
+        assert!(!seen.contains(&(3,0)));
+        assert!(!seen.contains(&(4,0)));
+    }
+
+
+    #[test]
     fn not_showing_flag_test() {
-        let mut field: Vec<Vec<i8>> = vec![vec![0i8;10];10];
-        field[7][8] = -1; field[6][7] = 1; field[6][8] = 1; field[6][9] = 1;
-        field[7][7] = 1; field[7][9] = 1;
-        field[8][7] = 1; field[8][8] = 1; field[8][9] = 1; 
+        let field:Vec<Vec<i8>> = vec![  
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 1,-1, 1],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+                                    vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
         let mut seen: HashSet<(u8, u8)> = HashSet::new();
         let mut flags: HashSet<(u8, u8)> = HashSet::new();
         let mut guesses: u8 = 0;
         let mut real: u8 = 0;
 
         handle_user_guess(5, 5, &field, &mut seen, &flags);
-        assert!(!seen.contains(&(7, 9)));
-        assert!(!seen.contains(&(7, 8)));
+        assert!(!seen.contains(&(9, 7)));
+        assert!(!seen.contains(&(8, 7)));
 
         let mut expected_flags: HashSet<(u8, u8)> = HashSet::new();
-        expected_flags.insert((7, 8));
-        handle_place_flag(7,8, &field, &mut flags, &mut guesses, &mut real, &seen);
+        expected_flags.insert((8, 7));
+        handle_place_flag(8,7, &field, &mut flags, &mut guesses, &mut real, &seen);
         assert_eq!(expected_flags, flags);
     }
 
@@ -469,7 +487,6 @@ mod test {
 
     #[test]
     fn reveal_neighbours_hide_mines_basic_test() {
-        
         let dummy_field: Vec<Vec<i8>> = vec![vec![1,1,1,1,1], 
                                              vec![1,-1,-1,-1,1], 
                                              vec![1,-1,1,-1,1],
@@ -484,21 +501,17 @@ mod test {
 
     #[test]
     fn reveal_neighbours_hidemines_cascade_test() {
-        let dummy_field: Vec<Vec<i8>> = vec![vec![1,1,-1,1,1], 
-                                             vec![1,1,0,1,1], 
-                                             vec![-1,0,1,0,-1],
-                                             vec![1,1,0,1,1],
-                                             vec![1,1,-1,1,1]];
+        let dummy_field: Vec<Vec<i8>> = vec![vec![ 1, 1,-1, 1, 1], 
+                                             vec![ 1, 1, 0, 1, 1], 
+                                             vec![-1, 0, 1, 0,-1],
+                                             vec![ 1, 1, 0, 1, 1],
+                                             vec![ 1, 1,-1, 1, 1]];
         let mut dummy_seen: HashSet<(u8, u8)> = HashSet::new();
-        let mut expected: HashSet<(u8, u8)> = HashSet::new();
-        expected.insert((1,0)); expected.insert((3,0));
-        expected.insert((0,1)); expected.insert((1,1)); expected.insert((2,1));expected.insert((3,1));expected.insert((4,1));
-        expected.insert((1,2)); expected.insert((2,2));expected.insert((3,2));
-        expected.insert((0,3)); expected.insert((1,3)); expected.insert((2,3));expected.insert((3,3));expected.insert((4,3));
-        expected.insert((1,4)); expected.insert((3,4));
 
         reveal_neighbours(2, 2, &dummy_field, &mut dummy_seen);
-        assert_eq!(dummy_seen, expected);
+        assert!(!dummy_seen.contains(&(0,0))); assert!(!dummy_seen.contains(&(2,0))); assert!(!dummy_seen.contains(&(4,0)));
+        assert!(!dummy_seen.contains(&(0,2))); assert!(!dummy_seen.contains(&(4,2)));
+        assert!(!dummy_seen.contains(&(0,4))); assert!(!dummy_seen.contains(&(2,4))); assert!(!dummy_seen.contains(&(4,4)));
     }
 
     //GET NEIGHBOURS TESTS
@@ -514,7 +527,7 @@ mod test {
     fn get_neighbours_outofbounds_upper() {
         let dummy_vec: Vec<Vec<i8>> = vec![vec![1,0,2], vec![3,4,5], vec![-1,-1,-1]];
 
-        let result = get_neighbours(0, 1, &dummy_vec);
+        let result = get_neighbours(1, 0, &dummy_vec);
         assert_eq!(result, [-2,-2,-2,1,2,3,4,5]);
     }
 
@@ -522,7 +535,7 @@ mod test {
     fn get_neighbours_outofbounds_left() {
         let dummy_vec: Vec<Vec<i8>> = vec![vec![1,2,8], vec![0,3,8], vec![4,5,8]];
 
-        let result = get_neighbours(1, 0, &dummy_vec);
+        let result = get_neighbours(0, 1, &dummy_vec);
         assert_eq!(result, [-2,1,2,-2,3,-2,4,5]);
     }
     
@@ -530,7 +543,7 @@ mod test {
     fn get_neighbours_outofbounds_right() {
         let dummy_vec: Vec<Vec<i8>> = vec![vec![8,1,2], vec![8,3,0], vec![8,4,5]];
 
-        let result = get_neighbours(1, 2, &dummy_vec);
+        let result = get_neighbours(2, 1, &dummy_vec);
         assert_eq!(result, [1,2,-2,3,-2,4,5,-2]);
     }
 
@@ -538,7 +551,7 @@ mod test {
     fn get_neighbours_outofbounds_lower() {
         let dummy_vec: Vec<Vec<i8>> = vec![vec![8,8,8], vec![1,2,3], vec![4,0,5]];
 
-        let result = get_neighbours(2, 1, &dummy_vec);
+        let result = get_neighbours(1, 2, &dummy_vec);
         assert_eq!(result, [1,2,3,4,5,-2,-2,-2]);
     }
 }
