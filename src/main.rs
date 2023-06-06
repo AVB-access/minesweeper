@@ -16,7 +16,7 @@ fn main() {
     get_field_size(&mut n, &mut m);
     let mut field: Vec<Vec<i8>> = vec![vec![0;n as usize];m as usize];
     let mut user_visible: HashSet<(u8,u8)> = HashSet::new();
-    let mut placed_flags: Vec<Vec<bool>> = vec![vec![false;n as usize]; m as usize];
+    let mut placed_flags: HashSet<(u8,u8)> = HashSet::new();
     let no_mines = ask_user_mines_no(n, m);
     let (mut guessed_mines, mut real_mines) = (0u8,0u8);
     let mut game_running:bool = true;
@@ -60,7 +60,7 @@ fn main() {
  * ASSUMES VALID COORDINATES
  */
 fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8, u8)>, 
-                        flags: &mut Vec<Vec<bool>>, guessed_mines: &mut u8,
+                        flags: &mut HashSet<(u8, u8)>, guessed_mines: &mut u8,
                         real_mines: &mut u8) -> GuessState {
     print!("Reveal (r) or flag (f): ");
     let _ = stdout().flush();
@@ -84,18 +84,18 @@ fn handle_open_or_flag(x: u8, y:u8, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8
  * increments or decrements mine count
  * Returns success 
  */
-fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Vec<bool>>, 
+fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut HashSet<(u8, u8)>, 
                         guessed_mines: &mut u8, real_mines: &mut u8, seen: &HashSet<(u8, u8)>) -> GuessState{
     if seen.contains(&(x as u8, y as u8)) { return GuessState::AlreadySeen; }
 
-    if flags[x][y] {
+    if flags.contains(&(x as u8, y as u8)) {
         *guessed_mines -= 1;
         if field[x][y] == -1 { *real_mines -= 1; }
-        flags[x][y] = false;
+        flags.remove(&(x as u8, y as u8));
     }else {
         *guessed_mines += 1;
         if field[x][y] == -1 { *real_mines += 1; }
-        flags[x][y] = true;
+        flags.insert((x as u8, y as u8));
     }
     return GuessState::Success
 }
@@ -105,9 +105,9 @@ fn handle_place_flag(x: usize, y:usize, field: &Vec<Vec<i8>>, flags: &mut Vec<Ve
 * Has it already been revealed?
 * Is it a mine?
 */
-fn handle_user_guess(x:u8,y:u8, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8,u8)>, flags: &Vec<Vec<bool>>) -> GuessState {
+fn handle_user_guess(x:u8,y:u8, field: &Vec<Vec<i8>>, seen: &mut HashSet<(u8,u8)>, flags: &HashSet<(u8,u8)>) -> GuessState {
     //Check spot:
-    if seen.contains(&(x, y)) || flags[x as usize][y as usize] {
+    if seen.contains(&(x, y)) || flags.contains(&(x, y)) {
         return GuessState::AlreadySeen;
     }else if field[x as usize][y as usize] == -1 {
         seen.insert((x,y));
@@ -318,7 +318,7 @@ fn print_opening(n:u8, m:u8) {
     println!()
 }
 
-fn print_field(field: &Vec<Vec<i8>>, seen: &HashSet<(u8, u8)>, flags: &Vec<Vec<bool>>) {
+fn print_field(field: &Vec<Vec<i8>>, seen: &HashSet<(u8, u8)>, flags: &HashSet<(u8, u8)>) {
     let spaces = " ".repeat((field[0].len() as f32/10 as f32).ceil() as usize);
 
     for (i, row) in field.iter().enumerate() {
@@ -331,7 +331,7 @@ fn print_field(field: &Vec<Vec<i8>>, seen: &HashSet<(u8, u8)>, flags: &Vec<Vec<b
                 }else { 
                     print!("{}{}", colmn, spaces);
                 }
-            } else if flags[i][j] {
+            } else if flags.contains(&(i as u8, j as u8)) {
                 print!("#{}", spaces);
             } else {
                 print!("?{}", spaces);
@@ -403,7 +403,7 @@ mod test {
         field[7][7] = 1; field[7][9] = 1;
         field[8][7] = 1; field[8][8] = 1; field[8][9] = 1; 
         let mut seen: HashSet<(u8, u8)> = HashSet::new();
-        let mut flags: Vec<Vec<bool>> = vec![vec![false;10];10];
+        let mut flags: HashSet<(u8, u8)> = HashSet::new();
         let mut guesses: u8 = 0;
         let mut real: u8 = 0;
 
@@ -411,8 +411,8 @@ mod test {
         assert!(!seen.contains(&(7, 9)));
         assert!(!seen.contains(&(7, 8)));
 
-        let mut expected_flags: Vec<Vec<bool>> = vec![vec![false;10];10];
-        expected_flags[7][8] = true;
+        let mut expected_flags: HashSet<(u8, u8)> = HashSet::new();
+        expected_flags.insert((7, 8));
         handle_place_flag(7,8, &field, &mut flags, &mut guesses, &mut real, &seen);
         assert_eq!(expected_flags, flags);
     }
